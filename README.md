@@ -1,8 +1,8 @@
 # Ray.AuraSqlModule
 
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/Ray-Di/Ray.AuraSqlModule/badges/quality-score.png?b=develop)](https://scrutinizer-ci.com/g/Ray-Di/Ray.AuraSqlModule/?branch=develop)
-[![Code Coverage](https://scrutinizer-ci.com/g/Ray-Di/Ray.AuraSqlModule/badges/coverage.png?b=develop)](https://scrutinizer-ci.com/g/Ray-Di/Ray.AuraSqlModule/?branch=develop)
-[![Build Status](https://travis-ci.org/ray-di/Ray.AuraSqlModule.svg?branch=develop)](https://travis-ci.org/ray-di/Ray.AuraSqlModule)
+[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/ray-di/Ray.AuraSqlModule/badges/quality-score.png?b=develop)](https://scrutinizer-ci.com/g/ray-di/Ray.AuraSqlModule/?branch=develop)
+[![Code Coverage](https://scrutinizer-ci.com/g/ray-di/Ray.AuraSqlModule/badges/coverage.png?b=develop)](https://scrutinizer-ci.com/g/ray-di/Ray.AuraSqlModule/?branch=develop)
+[![Build Status](https://travis-ci.org/ray-di/Ray.AuraSqlModule.svg?branch=1.x)](https://travis-ci.org/ray-di/Ray.AuraSqlModule)
 
 [Aura.Sql](https://github.com/auraphp/Aura.Sql) Module for [Ray.Di](https://github.com/koriym/Ray.Di)
 
@@ -14,29 +14,24 @@
  
 ### Module install
 
-Single DB
 ```php
 use Ray\Di\AbstractModule;
 use Ray\AuraSqlModule\AuraSqlModule;
-use Ray\AuraSqlModule\Annotation\AuraSqlConfig;
+use Ray\AuraSqlModule\AuraSqlQueryModule;
 
 class AppModule extends AbstractModule
 {
     protected function configure()
     {
         $this->install(new AuraSqlModule('mysql:host=localhost;dbname=test', 'username', 'password');
-        
-        // or
-        // $this->install(new AuraSqlModule);
-        // $this->bind()->annotatedWith(AuraSqlConfig::class)->toInstance([$dsn ,$user ,$password]);
+        $this->install(new AuraSqlQueryModule('mysql'); // optional query builder
     }
 }
 ```
 ### DI trait
 
- * [AuraSqlInject](https://github.com/Ray-DI/Ray.AuraSqlModule/blob/master/src/AuraSqlInject.php) for `Aura\Sql\ExtendedPdoInterface` interface
+ * [AuraSqlInject](https://github.com/ray-di/Ray.AuraSqlModule/blob/master/src/AuraSqlInject.php) for `Aura\Sql\ExtendedPdoInterface` interface
  
-
 #### Master / Slave database
 
 Frequently, high-traffic PHP applications use multiple database servers, generally one for writes, and one or more for reads.
@@ -56,7 +51,7 @@ class AppModule extends AbstractModule
         $locator->setWrite('master', new Connection('mysql:host=localhost;dbname=master', 'username', 'password'));
         $locator->setRead('slave1', new Connection('mysql:host=localhost;dbname=slave1', 'username', 'password'));
         $locator->setRead('slave2', new Connection('mysql:host=localhost;dbname=slave2', 'username', 'password'));
-        $this->install(new new AuraSqlReplicationModule($locator);
+        $this->install(new AuraSqlReplicationModule($locator));
     }
 }
 
@@ -137,6 +132,79 @@ class User
     }
 }
 ```
+## Query Builder
+
+[Aura.SqlQuery](https://github.com/auraphp/Aura.SqlQuery) provides query builders for MySQL, Postgres, SQLite, and Microsoft SQL Server. Following four interfaces are bound and setter trait for them are available.
+
+QueryBuilder interface
+ * `Aura\SqlQuery\Common\SelectInterface`
+ * `Aura\SqlQuery\Common\InsertInterface`
+ * `Aura\SqlQuery\Common\UpdateInterface`
+ * `Aura\SqlQuery\Common\DeleteInterface`
+
+QueryBuilder setter trait
+ * `Ray\AuraSqlModule\AuraSqlSelectInject`
+ * `Ray\AuraSqlModule\AuraSqlInsertInject`
+ * `Ray\AuraSqlModule\AuraSqlUpdateInject`
+ * `Ray\AuraSqlModule\AuraSqlDeleteInject`
+
+```php
+use Ray\AuraSqlModule\AuraSqlSelectInject;
+clas Foo
+{
+    use AuraSqlSelectInject;
+    
+    public function bar()
+    {
+        ```php
+        /* @var $select \Aura\SqlQuery\Common\SelectInterface */
+        $this->select // 
+            ->distinct()                    // SELECT DISTINCT
+            ->cols(array(                   // select these columns
+                'id',                       // column name
+                'name AS namecol',          // one way of aliasing
+                'col_name' => 'col_alias',  // another way of aliasing
+                'COUNT(foo) AS foo_count'   // embed calculations directly
+            ))
+            ->from('foo AS f');              // FROM these tables
+        $sth = $this->pdo->prepare($this->select->getStatement());
+        // bind the values and execute
+        $sth->execute($this->select->getBindValues());
+        // get the results back as an associative array
+        $result = $sth->fetch(PDO::FETCH_ASSOC);
+         = $sth->fetch(PDO::FETCH_ASSOC);
+```
+
+## Pagination
+
+Pagination service is provided for both `ExtendedPdo` raw sql and `Select` query builder. 
+
+```php
+// for ExtendedPdo
+$sql = 'SELECT * FROM posts';
+$pager = $factory->newInstance($pdo, $sql, 10, '/?page={page}&category=sports'); // 10 items per page
+$user = $pager->execute($params, 2); // page 2
+
+// for Select
+$pager = $factory->newInstance($pdo, $select, 10, '/?page={page}&category=sports');
+$user = $pager->execute(2); // page 2
+```
+
+Each `execute()` returns `Pager` value object.
+
+```
+/* @var Pager \Ray\AuraSqlModule\Pagerfanta\Pager */
+
+// $pager->data // sliced data
+// $pager->current;
+// $pager->total
+// $pager->hasNext
+// $pager->hasPrevious
+// $pager->maxPerPage;
+// $pager->html
+```
+
+
 ### Demo
 
     $ php docs/demo/run.php
