@@ -2,11 +2,12 @@
 /**
  * This file is part of the Ray.AuraSqlModule package
  *
- * @license http://opensource.org/licenses/bsd-license.php BSD
+ * @license http://opensource.org/licenses/MIT MIT
  */
 namespace Ray\AuraSqlModule;
 
 use Aura\Sql\ExtendedPdoInterface;
+use Aura\SqlQuery\Common\SelectInterface;
 use Doctrine\Common\Annotations\AnnotationRegistry;
 use Ray\AuraSqlModule\Annotation\AuraSqlConfig;
 use Ray\AuraSqlModule\Annotation\Transactional;
@@ -22,9 +23,8 @@ class AuraSqlModule extends AbstractModule
      */
     public function __construct($dsn, $user = '', $password = '')
     {
-        AnnotationRegistry::registerFile(__DIR__ . '/DoctrineAnnotations.php');
         if ($dsn) {
-            $this->bind()->annotatedWith(AuraSqlConfig::class)->toInstance([$dsn ,$user ,$password]);
+            $this->bind()->annotatedWith(AuraSqlConfig::class)->toInstance([$dsn, $user, $password]);
         }
     }
 
@@ -34,7 +34,7 @@ class AuraSqlModule extends AbstractModule
     protected function configure()
     {
         $this->bind(ExtendedPdoInterface::class)->toProvider(AuraSqlProvider::class)->in(Scope::SINGLETON);
-
+        $this->bind(SelectInterface::class)->toProvider(AuraSqlQuerySelectProvider::class)->in(Scope::SINGLETON);
         // @Transactional
         $this->bindInterceptor(
             $this->matcher->any(),
